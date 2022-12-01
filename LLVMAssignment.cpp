@@ -31,6 +31,8 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include "Liveness.h"
+#include "Point2Analysis.h"
+
 using namespace llvm;
 static ManagedStatic<LLVMContext> GlobalContext;
 static LLVMContext &getGlobalContext() { return *GlobalContext; }
@@ -64,8 +66,11 @@ struct FuncPtrPass : public ModulePass {
 char FuncPtrPass::ID = 0;
 static RegisterPass<FuncPtrPass> X("funcptrpass", "Print function call instruction");
 
-char Liveness::ID = 0;
-static RegisterPass<Liveness> Y("liveness", "Liveness Dataflow Analysis");
+//char Liveness::ID = 0;
+//static RegisterPass<Liveness> Y("liveness", "Liveness Dataflow Analysis");
+
+char Point2Analysis::ID= 0;
+static RegisterPass<Point2Analysis> Y("point2analysis","Points to Set Analysis");
 
 static cl::opt<std::string>
 InputFilename(cl::Positional,
@@ -96,8 +101,9 @@ int main(int argc, char **argv) {
    Passes.add(llvm::createPromoteMemoryToRegisterPass());
 
    /// Your pass to print Function and Call Instructions
-   Passes.add(new Liveness());
-   //Passes.add(new FuncPtrPass());
+   //Passes.add(new Liveness());
+   Passes.add(new Ponit2Analysis());
+   Passes.add(new FuncPtrPass());
    Passes.run(*M.get());
 #ifndef NDEBUG
    system("pause");
