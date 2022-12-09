@@ -30,7 +30,6 @@
 #include <llvm/Pass.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include "Liveness.h"
 #include "Point2Analysis.h"
 
 using namespace llvm;
@@ -57,8 +56,8 @@ char EnableFunctionOptPass::ID = 0;
 //char Liveness::ID = 0;
 //static RegisterPass<Liveness> Y("liveness", "Liveness Dataflow Analysis");
 
-char Point2Analysis::ID= 0;
-static RegisterPass<Point2Analysis> X("point2analysis","Points to Set Analysis");
+char PointAnalysis::ID= 0;
+static RegisterPass<PointAnalysis> X("point2analysis","Points to Set Analysis");
 
 static cl::opt<std::string>
 InputFilename(cl::Positional,
