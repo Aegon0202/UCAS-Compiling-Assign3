@@ -63,7 +63,7 @@ struct Point2SetInfo {
 };
 
 inline raw_ostream &operator<<(raw_ostream &out, const Point2SetInfo &pts) {
-  for (const auto v : pts.sets) {
+  for (const auto v : pts.IntraPts) {
     if (v.first->hasName()) {
       out << v.first->getName();
     } else {
