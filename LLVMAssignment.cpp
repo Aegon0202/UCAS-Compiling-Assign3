@@ -51,26 +51,14 @@ struct EnableFunctionOptPass : public FunctionPass {
 
 char EnableFunctionOptPass::ID = 0;
 
-///!TODO TO BE COMPLETED BY YOU FOR ASSIGNMENT 3
-struct FuncPtrPass : public ModulePass {
-    static char ID; // Pass identification, replacement for typeid
-    FuncPtrPass() : ModulePass(ID) {}
-
-
-    bool runOnModule(Module &M) override {
-        return false;
-    }
-};
-
-
-char FuncPtrPass::ID = 0;
-static RegisterPass<FuncPtrPass> X("funcptrpass", "Print function call instruction");
+//char FuncPtrPass::ID = 0;
+//static RegisterPass<FuncPtrPass> X("funcptrpass", "Print function call instruction");
 
 //char Liveness::ID = 0;
 //static RegisterPass<Liveness> Y("liveness", "Liveness Dataflow Analysis");
 
 char Point2Analysis::ID= 0;
-static RegisterPass<Point2Analysis> Y("point2analysis","Points to Set Analysis");
+static RegisterPass<Point2Analysis> X("point2analysis","Points to Set Analysis");
 
 static cl::opt<std::string>
 InputFilename(cl::Positional,
@@ -103,7 +91,6 @@ int main(int argc, char **argv) {
    /// Your pass to print Function and Call Instructions
    //Passes.add(new Liveness());
    Passes.add(new Ponit2Analysis());
-   Passes.add(new FuncPtrPass());
    Passes.run(*M.get());
 #ifndef NDEBUG
    system("pause");

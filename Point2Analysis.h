@@ -63,10 +63,8 @@ struct Point2SetInfo {
 };
 
 inline raw_ostream &operator<<(raw_ostream &out, const Point2SetInfo &info) {
-    for (std::set<Instruction *>::iterator ii=info.LiveVars.begin(), ie=info.LiveVars.end();
+    for (std::map<Value*,std::set<Value*> >::iterator ii=info.IntraPts.begin(), ie=info.IntraPts.end();
          ii != ie; ++ ii) {
-        const Instruction * inst = *ii;
-        out << inst->getName();
         out << " ";
     }
     return out;
