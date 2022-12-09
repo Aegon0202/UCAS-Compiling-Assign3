@@ -32,7 +32,7 @@ struct Point2SetInfo {
     void addPoint2Edge(Value* pre, Value* suc){
         assert(pre);
 
-        if(IntraPts.find(pre) == IntraPts.end()){
+        if(IntraPts.find(pre) == IntraPts.end())
             add_node(pre);
 
         IntraPts[pre]->insert(suc);         
