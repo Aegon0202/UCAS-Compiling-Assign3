@@ -11,6 +11,7 @@ using namespace llvm;
 struct Point2SetInfo {
     std::map<Value*, std::set<Value *> *> IntraPts;
     std::set<Value* > registedValues;
+    std::map<Value*, std::set<Function*>*> call2Funcs;
 
     Point2SetInfo() : IntraPts() {}
     Point2SetInfo(const Point2SetInfo & info) : IntraPts(info.IntraPts) {}
@@ -50,7 +51,7 @@ struct Point2SetInfo {
         IntraPts[pre]->clear();
     }
 
-    std::set<Value*>* GetPoint2Set(Value* pre){
+    std::set<Value*>* getPoint2Set(Value* pre){
         return IntraPts[pre]; 
     }
 
@@ -76,29 +77,17 @@ class Point2AnalysisVisitor : public DataflowVisitor<struct Point2SetInfo> {
 public:
     Point2AnalysisVisitor() {}
 
-    unsigned mcurrent_line;
-
-    std::map<unsigned, std::set<Funciton*>> mOutput;
-
-    void push2Output(){
-        int size = mOutput.size();
-        if(size&&mOutput[size-1].first==mcurrent_line){
-            mOutput[size-1].second->insert(mcurrent_func->begin(),mcurrent_func->end());
-            delete mcurrent_func;
-        }
-        else
-        mOutput.push_back({mcurrent_line, mcurrent_func});
-    }
+    std::map<unsigned, std::set<std::string>*> mOutput;
 
     void showResult(){
         for(int i=0;i<mOutput.size();i++){
             unsigned line = mOutput[i].first;
-            std::set<Function*> funcs = *(mOutput[i].second);
+            std::set<std::string> funcs = *(mOutput[i].second);
             errs()<<line<<":";
             int flag = 1; 
-            for(Function* i :funcs){
+            for(std::string i:funcs){
                 if(flag){
-                    errs()<<i->getName();
+                    errs()<<i;
                     flag = 0;
                 }
                 else
@@ -109,10 +98,15 @@ public:
     }
     
     void handleFunction(Function* func){
-        
+        return ; 
     } 
+    
+    void handleAllocaInst(AllocaInst* allocainst, Point2SetInfo* dfval){
+        return ;   
+    }
 
     void handleLoadInst(LoadInst* loadinst, Point2SetInfo * dfval){
+        /*
         Value* address = loadinst->getPointerOperand();
         std::set<Value*>* s = dfval->getPoint2Set(address);
         Value* pre = dyn_cast<Value>(loadinst);
@@ -122,7 +116,11 @@ public:
             std::set<Value*> sucs = dfval->getPoint2Set(i);
             dfval->addPoint2Set(pre, sucs); 
         }
-
+        */
+        Value* suc = loadinst->getPointerOperand();
+        Value* pre = dyn_cast<Value>(loadinst);
+        dfval->remvoePoint2Set(pre);
+        dfval->addPoint2Set(pre, dfval->getPoint2Set(suc));
     }
     
     void handleStoreInst(StoreInst* storeinst,Point2SetInfo* dfval){
@@ -135,10 +133,39 @@ public:
 
 
     void handleCallInst(CallInst* callinst, Point2SetInfo* dfval){
-         
+        Value* callop = callinst->getCalledOperand(); 
+        unsigned line = callinst->getDebugLoc().getLine(); 
+        unsigned argnum = callinst->getNumArgOperands();     
 
+        if(mOutput.find(line)==mOutput.end()){
+            mOutput.insert(line, new std::set<std::string>());
+        }
+        std::set<std::string>* names = mOutput.find(line);
+
+        if(callop->getName() == "malloc"){
+            names->insert("malloc");            
+            return;
+        }
         
-        // contex-insensitive
+        std::set<Value*>* callfuncs = dfval->getPoint2Set(callop); 
+    
+        for(Value* func: *callvals){
+            Function* f = dyn_cast<Function> func;
+            names->insert(f->getName());
+             
+
+            for(unsigned i=0;i<argnum;i++){
+                Value* argi = callinst->getArgOperand(i);
+                if(argi->getType()->isPointerTy()){
+                    Value* fargi = f->getArg(i);
+                    dfval->addPoint2Set(fargi,dfval->getPoint2Set(argi));
+                }
+            }
+            
+        } 
+        
+
+
         return ;
     }
 
@@ -165,14 +192,23 @@ public:
 };
 
 
-class PointAnalysis : public FunctionPass {
+class PointAnalysis : public ModulePass {
 public:
 
     static char ID;
-    PointAnalysis() : FunctionPass(ID) {} 
+    PointAnalysis() : ModulePass(ID) {} 
 
-    bool runOnFunction(Function &F) override {
+    bool runOnModule(Module &M) override {
+        DataflowResult<Point2SetInfo>::Type result;
+        Point2AnalysisVisitor visitor;
 
+        for(Function& f:M){
+
+            Point2SetInfo initval;
+            compForwardDataflow(&f, &visitor, &result, initval);
+        }
+        
+        visitor.showResult();
         return false;
     }
 };
