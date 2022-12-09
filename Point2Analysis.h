@@ -21,7 +21,7 @@ struct Point2SetInfo {
     
     void add_node(Value* v){
         registedValues.insert(v) ;
-        IntraPts.insert({pre,new std::set<Value*>()});
+        IntraPts.insert({v,new std::set<Value*>()});
     }
 
     void set_union(std::set<Value*>* dest,std::set<Value*>* src){
@@ -47,7 +47,7 @@ struct Point2SetInfo {
     } 
 
     void RemovePoint2Set(Value* pre){
-        assert(pre && IntraPts.find(pre)!=IntraPts_end());
+        assert(pre && IntraPts.find(pre)!=IntraPts.end());
         IntraPts[pre]->clear();
     }
 
@@ -78,18 +78,18 @@ public:
     std::map<unsigned, std::set<std::string>*> mOutput;
 
     void showResult(){
-        for(int i=0;i<mOutput.size();i++){
-            unsigned line = mOutput[i].first;
-            std::set<std::string> funcs = *(mOutput[i].second);
+        for(std::map<unsigned, std::set<std::string>*>::iterator i=mOutput.begin(), j=mOutput.end(); i!=j; i++){
+            unsigned line =i->first;
+            std::set<std::string> funcs = *(i->second);
             errs()<<line<<":";
             int flag = 1; 
-            for(std::string i:funcs){
+            for(std::string ii:funcs){
                 if(flag){
-                    errs()<<i;
+                    errs()<<ii;
                     flag = 0;
                 }
                 else
-                    errs()<<","<<i->getName();
+                    errs()<<","<<ii;
             }
             errs()<<"\n";
         }
