@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
 
    /// Your pass to print Function and Call Instructions
    //Passes.add(new Liveness());
-   Passes.add(new Ponit2Analysis());
+   Passes.add(new PointAnalysis());
    Passes.run(*M.get());
 #ifndef NDEBUG
    system("pause");

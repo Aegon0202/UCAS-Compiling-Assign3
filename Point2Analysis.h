@@ -40,13 +40,13 @@ struct Point2SetInfo {
     
     void addPoint2Set(Value* pre,std::set<Value*>* sucs){
         if(IntraPts.find(pre)==IntraPts.end()){
-            IntraPts.insert({pre, new std::set<Value*>()})
+            IntraPts.insert({pre, new std::set<Value*>()});
         }
         
         set_union(IntraPts[pre],sucs);
     } 
 
-    void RemovePoint2Set(Value* pre){
+    void removePoint2Set(Value* pre){
         assert(pre && IntraPts.find(pre)!=IntraPts.end());
         IntraPts[pre]->clear();
     }
@@ -63,10 +63,6 @@ struct Point2SetInfo {
 };
 
 inline raw_ostream &operator<<(raw_ostream &out, const Point2SetInfo &info) {
-    for (std::map<Value*,std::set<Value*> >::iterator ii=info.IntraPts.begin(), ie=info.IntraPts.end();
-         ii != ie; ++ ii) {
-        out << " ";
-    }
     return out;
 }
 
@@ -117,7 +113,7 @@ public:
         */
         Value* suc = loadinst->getPointerOperand();
         Value* pre = dyn_cast<Value>(loadinst);
-        dfval->remvoePoint2Set(pre);
+        dfval->removePoint2Set(pre);
         dfval->addPoint2Set(pre, dfval->getPoint2Set(suc));
     }
     
@@ -136,9 +132,9 @@ public:
         unsigned argnum = callinst->getNumArgOperands();     
 
         if(mOutput.find(line)==mOutput.end()){
-            mOutput.insert(line, new std::set<std::string>());
+            mOutput.insert({line, new std::set<std::string>()});
         }
-        std::set<std::string>* names = mOutput.find(line);
+        std::set<std::string>* names = mOutput[line];
 
         if(callop->getName() == "malloc"){
             names->insert("malloc");            
@@ -147,8 +143,8 @@ public:
         
         std::set<Value*>* callfuncs = dfval->getPoint2Set(callop); 
     
-        for(Value* func: *callvals){
-            Function* f = dyn_cast<Function> func;
+        for(Value* func: *callfuncs){
+            Function* f = dyn_cast<Function>(func);
             names->insert(f->getName());
              
 
