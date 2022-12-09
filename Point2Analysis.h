@@ -62,10 +62,26 @@ struct Point2SetInfo {
     
 };
 
-inline raw_ostream &operator<<(raw_ostream &out, const Point2SetInfo &info) {
-    return out;
-}
+inline raw_ostream &operator<<(raw_ostream &out, const Point2SetInfo &pts) {
+  for (const auto v : pts.sets) {
+    if (v.first->hasName()) {
+      out << v.first->getName();
+    } else {
+      out << "%*"; 
+    }
+    out << ": {";
 
+    const auto s = v.second;
+    for (auto iter = s->begin(); iter != s->end(); iter++) {
+      if (iter != s->begin()) {
+        out << ", ";
+      }
+      out << (*iter)->getName();
+    }
+    out << "}\n";
+  }
+  return out;
+}
 	
 class Point2AnalysisVisitor : public DataflowVisitor<struct Point2SetInfo> {
 public:
