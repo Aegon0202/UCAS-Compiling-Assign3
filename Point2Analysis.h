@@ -162,7 +162,6 @@ public:
         for(Value* func: *callfuncs){
             Function* f = dyn_cast<Function>(func);
             names->insert(f->getName());
-             
 
             for(unsigned i=0;i<argnum;i++){
                 Value* argi = callinst->getArgOperand(i);
@@ -173,8 +172,6 @@ public:
             }
             
         } 
-        
-
 
         return ;
     }
@@ -211,13 +208,11 @@ public:
     bool runOnModule(Module &M) override {
         DataflowResult<Point2SetInfo>::Type result;
         Point2AnalysisVisitor visitor;
-
+        assert(0);
         for(Function& f:M){
-
             Point2SetInfo initval;
             compForwardDataflow(&f, &visitor, &result, initval);
         }
-        
         visitor.showResult();
         return false;
     }
