@@ -87,7 +87,7 @@ void compForwardDataflow(Function *fn,
     std::set<BasicBlock*> worklist;
 
     for(Function::iterator bi = fn->begin(); bi!=fn->end(); ++bi){
-        BasicBlock* bi = &*bi;
+        BasicBlock* bb = &*bi;
         result->insert(std::make_pair(bb,std::make_pair(initval, initval)));
         worklist.insert(bb);
     }
@@ -99,7 +99,7 @@ void compForwardDataflow(Function *fn,
         T bbentryval = (*result)[bb].first;
         for (auto pi = pred_begin(bb), pe = pred_end(bb); pi != pe; pi++) {
             BasicBlock *pred = *pi;
-            visitor->merge(&bbexitval, (*result)[pred].second);
+            visitor->merge(&bbentryval, (*result)[pred].second);
         }
 
         (*result)[bb].first = bbentryval;

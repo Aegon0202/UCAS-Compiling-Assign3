@@ -182,18 +182,18 @@ public:
 
     void compDFVal(Instruction* inst, Point2SetInfo * dfval) override{
         if(isa<DbgInfoIntrinsic>(inst)) return ;
-
+        
         if(LoadInst* loadinst = dyn_cast<LoadInst>(inst)){
             handleLoadInst(loadinst,dfval);
         } 
         else if(StoreInst* storeinst = dyn_cast<StoreInst>(inst)){
             handleStoreInst(storeinst,dfval);
         }
-        else if(CallInst* callinst = dyn_cast<CallInst>(callinst)){
+        else if(CallInst* callinst = dyn_cast<CallInst>(inst)){
             handleCallInst(callinst, dfval);
         }
         else{
-            assert(0);
+            return ;
         }
     }
 };
@@ -208,7 +208,6 @@ public:
     bool runOnModule(Module &M) override {
         DataflowResult<Point2SetInfo>::Type result;
         Point2AnalysisVisitor visitor;
-        assert(0);
         for(Function& f:M){
             Point2SetInfo initval;
             compForwardDataflow(&f, &visitor, &result, initval);
