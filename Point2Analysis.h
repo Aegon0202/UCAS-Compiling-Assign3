@@ -38,20 +38,24 @@ struct Point2SetInfo {
         IntraPts[pre]->insert(suc);         
     }
     
-    void addPoint2Set(Value* pre,std::set<Value*>* sucs){
+    void addPts(Value* pre,std::set<Value*>* sucs){
         if(IntraPts.find(pre)==IntraPts.end()){
             IntraPts.insert({pre, new std::set<Value*>()});
         }
         
         set_union(IntraPts[pre],sucs);
     } 
+    
 
-    void removePoint2Set(Value* pre){
-        assert(pre && IntraPts.find(pre)!=IntraPts.end());
+    void rmPts(Value* pre){
+        assert(pre);
+        if(IntraPts.find(pre)==IntraPts.end()){
+            add_node(pre);
+        }
         IntraPts[pre]->clear();
     }
 
-    std::set<Value*>* getPoint2Set(Value* pre){
+    std::set<Value*>* getPts(Value* pre){
         return IntraPts[pre]; 
     }
 
@@ -124,20 +128,20 @@ public:
 
         for(std::set<Value*>::iterator i=s->begin();i!=s->end();i++){
             std::set<Value*> sucs = dfval->getPoint2Set(i);
-            dfval->addPoint2Set(pre, sucs); 
+            dfval->addPts(pre, sucs); 
         }
         */
         Value* suc = loadinst->getPointerOperand();
         Value* pre = dyn_cast<Value>(loadinst);
-        dfval->removePoint2Set(pre);
-        dfval->addPoint2Set(pre, dfval->getPoint2Set(suc));
+        dfval->rmPts(pre);
+        dfval->addPts(pre, dfval->getPts(suc));
     }
     
     void handleStoreInst(StoreInst* storeinst,Point2SetInfo* dfval){
         Value* y = storeinst->getValueOperand();
         Value* x = storeinst->getPointerOperand(); 
 
-        dfval->removePoint2Set(x);
+        dfval->rmPts(x);
         dfval->addPoint2Edge(x,y);
     } 
 
@@ -157,7 +161,7 @@ public:
             return;
         }
         
-        std::set<Value*>* callfuncs = dfval->getPoint2Set(callop); 
+        std::set<Value*>* callfuncs = dfval->getPts(callop); 
     
         for(Value* func: *callfuncs){
             Function* f = dyn_cast<Function>(func);
@@ -167,7 +171,7 @@ public:
                 Value* argi = callinst->getArgOperand(i);
                 if(argi->getType()->isPointerTy()){
                     Value* fargi = f->getArg(i);
-                    dfval->addPoint2Set(fargi,dfval->getPoint2Set(argi));
+                    dfval->addPts(fargi,dfval->getPts(argi));
                 }
             }
             
@@ -177,7 +181,14 @@ public:
     }
 
     void merge(Point2SetInfo* dest, const Point2SetInfo & src) override{
-        return ;
+        const auto &srcPts = src.IntraPts;
+
+        for(const auto &pts:srcPts){
+            Value* pre = pts.first;
+            std::set<Value*>* sucs = pts.second;
+
+            dest->addPts(pre,sucs);
+        }
     }
 
     void compDFVal(Instruction* inst, Point2SetInfo * dfval) override{
@@ -208,10 +219,12 @@ public:
     bool runOnModule(Module &M) override {
         DataflowResult<Point2SetInfo>::Type result;
         Point2AnalysisVisitor visitor;
-        for(Function& f:M){
-            Point2SetInfo initval;
-            compForwardDataflow(&f, &visitor, &result, initval);
+        Point2SetInfo initval;
+        auto f = M.rbegin(), e = M.rend();
+        for(;(f->isIntrinsic()|| f->size()==0)&&f!=e;f++){
         }
+
+        compForwardDataflow(&*f, &visitor, &result, initval);
         visitor.showResult();
         return false;
     }
