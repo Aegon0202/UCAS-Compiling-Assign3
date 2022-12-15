@@ -7,6 +7,9 @@
 #include "Dataflow.h"
 using namespace llvm;
 
+std::map<BasicBlock*,std::set<BasicBlock*>* > callee2callerMap;
+std::map<BasicBlock*,std::set<BasicBlock*>* > caller2calleeMap;
+extern std::set<BasicBlock*> worklist;
 
 struct Point2SetInfo {
     std::map<Value*, std::set<Value *> *> IntraPts;
@@ -111,10 +114,6 @@ public:
         }
     }
     
-    void handleFunction(Function* func){
-        return ; 
-    } 
-    
     void handleAllocaInst(AllocaInst* allocainst, Point2SetInfo* dfval){
         return ;   
     }
@@ -145,8 +144,25 @@ public:
         dfval->addPoint2Edge(x,y);
     } 
 
-    void init_new_func(Function* fn ){
-        return ; 
+    void init_new_func(Function* fn,BaiscBlock* callerBB){
+                
+        BasicBlock* entry = &(f->getEntryBlock());
+        BasicBlock* exit = &(f->getBack());
+        
+        if(caller2calleeMap.find(callerBB)==caller2calleeMap.end()) {
+            caller2calleeMap.insert({callerBB, new std::set<BasicBlock*>()});
+        }
+        if(callee2callerMap.find(exit)==callee2callerMap.end()){
+            callee2callerMap.insert({exit, new std::set<BasicBlock*>()});
+        }
+
+        caller2calleeMap[callerBB]->insert(entry);
+        callee2callerMap[exit]->insert(callerBB->getUniqueSuccessor()->getUniqueSuccessor());
+        
+        //add all blocks of fn to worklist
+        for(Function::iterator bi = fn->begin();bi!=fn->end();++bi){
+            worklist.insert(bb);
+        }
     } 
 
     void handleCallInst(CallInst* callinst, Point2SetInfo* dfval){
@@ -168,7 +184,13 @@ public:
     
         for(Value* func: *callfuncs){
             Function* f = dyn_cast<Function>(func);
-            names->insert(f->getName());
+
+            //new function
+            if(names->find(f->getName())==names->end()){
+                //add to print result 
+                names->insert(f->getName());
+                init_new_func(f,callinst->getParent()); 
+            }
 
             for(unsigned i=0;i<argnum;i++){
                 Value* argi = callinst->getArgOperand(i);
@@ -218,15 +240,47 @@ public:
 
     static char ID;
     PointAnalysis() : ModulePass(ID) {} 
+    
+    void preProcess(Module &M) {
+        for(Function &fn:M){
+            for(Function::iterator bi = fn->begin(); bi!=fn->end(); ++bi){
+                BaiscBlock* block = &*bi;
+                for (BasicBlock::iterator ii=block->begin(), ie=block->end(); ii!=ie; ++ii){
+                    Instruction* inst = &*ii;
+                    if(isa<DbgInfoInstrinsic>(inst)) continue; 
+                    if(CallInst* callinst = dyn_cast<CallInst>(inst)){
+                         if(callinst->getCalledOperand()->getName()!="malloc"){
+                            block->splitBasicBlock(inst,"");
+
+                            assert(block->getUniqueSuccessor());
+
+                            block->Create(block->getContext(), "", block->getParent(), block->getUniqueSuccessor());
+                         } 
+                    }
+                }
+                        
+            }
+                
+        }
+    }
 
     bool runOnModule(Module &M) override {
+
+        // TODO:preProcessCallInst();
+        // after this every call instruction(except intrinsic call or malloc call) will be the last 
+        // instruction of the basicblock it belong to. The previous block will be divided into 2 blocks
+        // the first one is end with the call inst, and the second on begin with the next inst of the 
+        // call inst in previous block. A empty block will be created, and its succ is the second block, its
+        // pred is the first block.
+        preProcess(M); 
+
         DataflowResult<Point2SetInfo>::Type result;
         Point2AnalysisVisitor visitor;
         Point2SetInfo initval;
         auto f = M.rbegin(), e = M.rend();
         for(;(f->isIntrinsic()|| f->size()==0)&&f!=e;f++){
         }
-
+        
         compForwardDataflow(&*f, &visitor, &result, initval);
         visitor.showResult();
         return false;
