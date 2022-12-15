@@ -19,6 +19,8 @@ using namespace llvm;
 
 ///Base dataflow visitor class, defines the dataflow function
 
+std::set<BasicBlock*> worklist;
+
 template <class T>
 class DataflowVisitor {
 public:
@@ -84,10 +86,10 @@ void compForwardDataflow(Function *fn,
     typename DataflowResult<T>::Type *result,
     const T & initval) {
 
-    std::set<BasicBlock*> worklist;
 
     for(Function::iterator bi = fn->begin(); bi!=fn->end(); ++bi){
         BasicBlock* bb = &*bi;
+
         result->insert(std::make_pair(bb,std::make_pair(initval, initval)));
         worklist.insert(bb);
     }
@@ -95,6 +97,10 @@ void compForwardDataflow(Function *fn,
     while(!worklist.empty()) {
         BasicBlock * bb = *worklist.begin();
         worklist.erase(worklist.begin());
+
+        if(result->find(bb) == result->end()){
+            result->insert(std::make_pair(bb,std::make_pair(initval, initval)));
+        }
 
         T bbentryval = (*result)[bb].first;
         for (auto pi = pred_begin(bb), pe = pred_end(bb); pi != pe; pi++) {

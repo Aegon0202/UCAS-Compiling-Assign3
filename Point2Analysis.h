@@ -145,6 +145,9 @@ public:
         dfval->addPoint2Edge(x,y);
     } 
 
+    void init_new_func(Function* fn ){
+        return ; 
+    } 
 
     void handleCallInst(CallInst* callinst, Point2SetInfo* dfval){
         Value* callop = callinst->getCalledOperand(); 
