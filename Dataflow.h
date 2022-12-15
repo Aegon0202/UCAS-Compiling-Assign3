@@ -20,8 +20,8 @@ using namespace llvm;
 ///Base dataflow visitor class, defines the dataflow function
 
 std::set<BasicBlock*> worklist;
-extern std::map<BasicBlock*, std::set<BasicBlock*>> callee2callerMap;
-extern std::map<BasicBlock*, std::set<BasicBlock*>> caller2calleeMap;
+extern std::map<BasicBlock*, std::set<BasicBlock*>*> callee2callerMap;
+extern std::map<BasicBlock*, std::set<BasicBlock*>*> caller2calleeMap;
 template <class T>
 class DataflowVisitor {
 public:
@@ -97,6 +97,8 @@ void compForwardDataflow(Function *fn,
     
     while(!worklist.empty()) {
         BasicBlock * bb = *worklist.begin();
+        BasicBlock * current_entry = &(bb->getParent()->getEntryBlock());
+        BasicBlock * current_exit = &(bb->getParent()->back());
         worklist.erase(worklist.begin());
 
         if(result->find(bb) == result->end()){
@@ -111,9 +113,9 @@ void compForwardDataflow(Function *fn,
             visitor->merge(&bbentryval, (*result)[pred].second);
         }
 
-        if(bb->getParent()->getEntryBlock()==bb){
+        if(current_entry==bb){
             assert(caller2calleeMap.find(bb)!=caller2calleeMap.end());
-            std::set<BasicBlock*> preds = *caller2calleeMap[bb];
+            std::set<BasicBlock*> preds = *(caller2calleeMap[bb]);
             for(BasicBlock* pred : preds){
                 visitor->merge(&bbentryval,(*result)[pred].second);
             }
@@ -130,7 +132,7 @@ void compForwardDataflow(Function *fn,
             worklist.insert(*si);
         }
 
-        if(bb->getParent()->back()==bb){
+        if(current_exit==bb){
             assert(callee2callerMap.find(bb)!=callee2callerMap.end());
             
             std::set<BasicBlock*> sucs = *callee2callerMap[bb];

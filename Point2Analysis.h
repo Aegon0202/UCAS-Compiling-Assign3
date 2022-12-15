@@ -144,10 +144,10 @@ public:
         dfval->addPoint2Edge(x,y);
     } 
 
-    void init_new_func(Function* fn,BaiscBlock* callerBB){
+    void init_new_func(Function* fn,BasicBlock* callerBB){
                 
-        BasicBlock* entry = &(f->getEntryBlock());
-        BasicBlock* exit = &(f->getBack());
+        BasicBlock* entry = &(fn->getEntryBlock());
+        BasicBlock* exit = &(fn->back());
         
         if(caller2calleeMap.find(callerBB)==caller2calleeMap.end()) {
             caller2calleeMap.insert({callerBB, new std::set<BasicBlock*>()});
@@ -161,6 +161,7 @@ public:
         
         //add all blocks of fn to worklist
         for(Function::iterator bi = fn->begin();bi!=fn->end();++bi){
+            BasicBlock * bb = &*bi;
             worklist.insert(bb);
         }
     } 
@@ -243,17 +244,16 @@ public:
     
     void preProcess(Module &M) {
         for(Function &fn:M){
-            for(Function::iterator bi = fn->begin(); bi!=fn->end(); ++bi){
-                BaiscBlock* block = &*bi;
+            for(Function::iterator bi = fn.begin(); bi!=fn.end(); ++bi){
+                BasicBlock* block = &*bi;
                 for (BasicBlock::iterator ii=block->begin(), ie=block->end(); ii!=ie; ++ii){
                     Instruction* inst = &*ii;
-                    if(isa<DbgInfoInstrinsic>(inst)) continue; 
+                    if(isa<DbgInfoIntrinsic>(inst)) continue; 
+
                     if(CallInst* callinst = dyn_cast<CallInst>(inst)){
                          if(callinst->getCalledOperand()->getName()!="malloc"){
                             block->splitBasicBlock(inst,"");
-
                             assert(block->getUniqueSuccessor());
-
                             block->Create(block->getContext(), "", block->getParent(), block->getUniqueSuccessor());
                          } 
                     }
