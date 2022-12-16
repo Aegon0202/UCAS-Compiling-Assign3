@@ -148,15 +148,16 @@ public:
         myBasicBlock* exit = mfn->getExitBlock();
         
         myBasicBlock* nexit;
-
+        auto splitline = callinst->getIterator(); 
+        ++splitline;
         for(myBasicBlock* succ:curBB->getSuccs()){
-            if(succ->getBeginInst()==callinst->getIterator()+1){ 
+            if(succ->getBeginInst()==splitline){ 
                 nexit = succ; 
                 break;
             }
         }
 
-        assert(nexit->getBeginInst()==callinst->getIterator()+1) ;
+        assert(nexit->getBeginInst()==splitline) ;
 
         curBB->addSucc(entry);
         exit->addSucc(nexit); 
@@ -167,6 +168,10 @@ public:
     } 
 
     void handleCallInst(CallInst* callinst, Point2SetInfo* dfval, myBasicBlock* curBB){
+        
+        Function* fff = callinst->getFunction();
+        if(fff->getName()!="moo") return ;
+
         Value* callop = callinst->getCalledOperand(); 
         unsigned line = callinst->getDebugLoc().getLine(); 
         unsigned argnum = callinst->getNumArgOperands();     
@@ -194,9 +199,6 @@ public:
             }
 
             //compute dataflow infomation of func
-            
-            
-            compForwardDataflow(f, &visitor, &result, initval);
 
             for(unsigned i=0;i<argnum;i++){
                 Value* argi = callinst->getArgOperand(i);
@@ -222,7 +224,7 @@ public:
         }
     }
 
-    void compDFVal(Instruction* inst, Point2SetInfo * dfval, DataflowResult<Point2SetInfo>::Type* result) override{
+    void compDFVal(Instruction* inst, Point2SetInfo * dfval, myBasicBlock* mbb) override{
         if(isa<DbgInfoIntrinsic>(inst)) return ;
         
         if(LoadInst* loadinst = dyn_cast<LoadInst>(inst)){
@@ -232,7 +234,7 @@ public:
             handleStoreInst(storeinst,dfval);
         }
         else if(CallInst* callinst = dyn_cast<CallInst>(inst)){
-            handleCallInst(callinst, dfval,result);
+            handleCallInst(callinst, dfval, mbb);
         }
         else{
             return ;
@@ -240,103 +242,6 @@ public:
     }
 };
 
-class myFunc{
-public:
-    Function* mf;
-    std::set<myBasicBlock*> mbSet;
-    myBasicBlock* entry_block;
-    myBasicBlock* exit_block;
-
-    void myFunc(Function* f): mf(f), mbSet(){}
-    
-    void addmyBasicBlock(myBasicBlock* mb){
-        mbSet.insert(mb);
-    } 
-    
-    void setEntryBlock(myBasicBlock* mb){
-        entry_block = mb;
-    }
-
-    void setExitBlock(myBasicBlock* mb){
-        exit_block = mb;
-    }
-
-    myBasicBlock* getEntryBlock(){
-        return entry_block;
-    }
-
-    myBasicBlock* getExitBlock(){
-        return exit_block;
-    }
-
-}
-
-class myBasicBlock{
-public:
-    myFunc* parent; 
-    BasicBlock* bb;
-    BasicBlock::iterator begin_inst;
-    BasicBlock::iterator end_inst;
-    std::set<myBasicBlock*> mSuccs;
-    std::set<myBasicBlock*> mPreds;
-    bool isExitBlock = 0; 
-    void myBasicBlock(BasicBlock* initb, myFunc* mf): bb(initb),parent(mf), mSuccs(), mPreds(){} 
-
-    void addSucc(myBasicBlock* succ){
-        this->mSuccs.insert(succ);
-        succ->mPreds.insert(this);
-    }  
-    
-    void addPred(myBasicBlock* pred ){
-        this->mPreds.insert(pred);
-        pred->mSuccs.insert(this);
-    }
-    
-    std::set<myBasicBlock*> getSuccs(){
-        return mSuccs;
-    }
-
-    std::set<myBasicBlock*> getPreds(){
-        return mPreds;
-    }
-
-    void setBeginInst(BasicBlock::iterator inst){
-        begin_inst = inst;
-    }
-
-    void setEndInst(BasicBlock::iterator inst){
-        end_inst = inst;
-    }
-    
-    BasicBlock::iterator getBeginInst(){
-        return begin_inst;
-    }
-
-    BasicBlock::iterator getEndInst(){
-        return end_inst;
-    }
-
-    myBasicBlock* split(BasicBlock::iterator ii){
-        myBasicBlock* newMbb = new myBasicBlock(bb,parent);
-        parent->mbSet.insert(newMbb);
-
-        newMbb->mSuccs = this->mSuccs;
-        this->mSuccs.clear();
-        this->addSuccs(newMbb);
-
-        newMbb->setBeginInst(ii);
-        newMbb->setEndInst(end_inst);
-        end_inst = ii;
-
-        if(isExitBlock){
-            isExitBlock = 0;
-            newMbb->isExitBlock = 1;
-            parent->setExitBlock(newMbb);
-        }
-        
-        return newMbb;
-    }
-};
 
 
 class PointAnalysis : public ModulePass {
@@ -356,6 +261,7 @@ public:
 
     void preProcess(Module &M) {
         for(Function &fn:M){
+            if(fn.isIntrinsic()) continue;
             myFunc* mf = new myFunc(&fn);
             func2myfunc.insert({&fn,mf});
 
@@ -378,8 +284,8 @@ public:
                 blist.erase(blist.begin());
                 myBasicBlock* pre_mbb = createdList[block];
 
-                for(auto si = block->succ_begin(), se = block->succ_end(); si!=se; si++){
-                    BasicBlock* succb = &*si;
+                for(auto si = succ_begin(block), se = succ_end(block); si!=se; si++){
+                    BasicBlock* succb = *si;
                     myBasicBlock* succ_mbb;  
 
                     if(createdList.find(succb)==createdList.end()){
@@ -389,7 +295,7 @@ public:
                         
                         mf->addmyBasicBlock(succ_mbb);
                         createdList.insert({succb,succ_mbb});
-                        blist.insert(succb,);                         
+                        blist.insert(succb);                         
                     }
                     else{
                         succ_mbb = createdList[succb];
@@ -402,7 +308,7 @@ public:
 
             mf->setExitBlock(createdList[&(fn.back())]);
             mf->getExitBlock()->isExitBlock = 1;
-            for(Functon::iterator bi = fn.begin(), be = fn.end();bi != be; bi++){
+            for(Function::iterator bi = fn.begin(), be = fn.end();bi != be; bi++){
                 BasicBlock* bb = &*bi;
                 
                 for (BasicBlock::iterator ii=bb->begin(), ie=bb->end(); ii!=ie; ++ii){
@@ -411,7 +317,9 @@ public:
                     if(CallInst* callinst = dyn_cast<CallInst>(inst)){
                         if(callinst->getCalledOperand()->getName()!="malloc"){
                             myBasicBlock* mbb = createdList[bb];
-                            createdList[bb] =  mbb->split(ii+1);
+                            auto tmpi = ii;
+                            tmpi++;
+                            createdList[bb] =  mbb->split(tmpi);
                         } 
                     }
                 }
@@ -428,8 +336,9 @@ public:
         // the first one is end with the call inst, and the second on begin with the next inst of the 
         // call inst in previous block. A empty block will be created, and its succ is the second block, its
         // pred is the first block.
+        
         preProcess(M); 
-
+        
         DataflowResult<Point2SetInfo>::Type result;
         Point2AnalysisVisitor visitor;
         Point2SetInfo initval;
@@ -439,6 +348,7 @@ public:
         
         compForwardDataflow(&*f, &visitor, &result, initval);
         visitor.showResult();
+        
         return false;
     }
 };

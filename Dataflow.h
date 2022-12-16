@@ -17,6 +17,109 @@
 
 using namespace llvm;
 
+class myBasicBlock;
+class myFunc{
+public:
+    Function* mf;
+    std::set<myBasicBlock*> mbSet;
+    myBasicBlock* entry_block;
+    myBasicBlock* exit_block;
+
+    myFunc(Function* f): mf(f), mbSet(){}
+    
+    void addmyBasicBlock(myBasicBlock* mb){
+        mbSet.insert(mb);
+    } 
+    
+    void setEntryBlock(myBasicBlock* mb){
+        entry_block = mb;
+    }
+
+    void setExitBlock(myBasicBlock* mb){
+        exit_block = mb;
+    }
+
+    myBasicBlock* getEntryBlock(){
+        return entry_block;
+    }
+
+    myBasicBlock* getExitBlock(){
+        return exit_block;
+    }
+
+};
+
+class myBasicBlock{
+public:
+    myFunc* parent; 
+    BasicBlock* bb;
+    BasicBlock::iterator begin_inst;
+    BasicBlock::iterator end_inst;
+    std::set<myBasicBlock*> mSuccs;
+    std::set<myBasicBlock*> mPreds;
+    bool isExitBlock = 0; 
+
+    myBasicBlock(BasicBlock* initb, myFunc* mf): bb(initb),parent(mf), mSuccs(), mPreds(){} 
+
+    void addSucc(myBasicBlock* succ){
+        this->mSuccs.insert(succ);
+        succ->mPreds.insert(this);
+    }  
+    
+    void addPred(myBasicBlock* pred ){
+        this->mPreds.insert(pred);
+        pred->mSuccs.insert(this);
+    }
+    
+    std::set<myBasicBlock*> getSuccs(){
+        return mSuccs;
+    }
+
+    std::set<myBasicBlock*> getPreds(){
+        return mPreds;
+    }
+
+    void setBeginInst(BasicBlock::iterator inst){
+        begin_inst = inst;
+    }
+
+    void setEndInst(BasicBlock::iterator inst){
+        end_inst = inst;
+    }
+    
+    BasicBlock::iterator getBeginInst(){
+        return begin_inst;
+    }
+
+    BasicBlock::iterator getEndInst(){
+        return end_inst;
+    }
+
+    myBasicBlock* split(BasicBlock::iterator ii){
+        myBasicBlock* newMbb = new myBasicBlock(bb,parent);
+        parent->mbSet.insert(newMbb);
+
+	for(myBasicBlock* suci:this->getSuccs()){
+	    newMbb->addSucc(suci);
+	}
+        this->mSuccs.clear();
+        this->addSucc(newMbb);
+
+        newMbb->setBeginInst(ii);
+        newMbb->setEndInst(end_inst);
+        end_inst = ii;
+
+        if(isExitBlock){
+            isExitBlock = 0;
+            newMbb->isExitBlock = 1;
+            parent->setExitBlock(newMbb);
+        }
+        
+        return newMbb;
+    }
+};
+
+
 std::set<myBasicBlock*> worklist;
 extern std::map<Function*, myFunc*> func2myfunc;
 
@@ -37,42 +140,24 @@ public:
            for (BasicBlock::iterator ii=mblock->getBeginInst(), ie=mblock->getEndInst(); 
                 ii!=ie; ++ii) {
                 Instruction * inst = &*ii;
-                compDFVal(inst, dfval);
+                compDFVal(inst, dfval,mblock);
            }
         } else {
            for (BasicBlock::reverse_iterator ii=block->rbegin(), ie=block->rend();
                 ii != ie; ++ii) {
                 Instruction * inst = &*ii;
-                compDFVal(inst, dfval);
+                compDFVal(inst, dfval,mblock);
            }
         }
     }
     
-    virtual void compDFVal(BasicBlock *block, T *dfval, typename DataflowResult<T>::Type *result, bool isforward){
-
-        if (isforward == true) {
-           for (BasicBlock::iterator ii=block->begin(), ie=block->end(); 
-                ii!=ie; ++ii) {
-                Instruction * inst = &*ii;
-                compDFVal(inst, dfval,result);
-           }
-        } else {
-           for (BasicBlock::reverse_iterator ii=block->rbegin(), ie=block->rend();
-                ii != ie; ++ii) {
-                Instruction * inst = &*ii;
-                compDFVal(inst, dfval,result);
-           }
-        }
-    }
     ///
     /// Dataflow Function invoked for each instruction
     ///
     /// @inst the Instruction
     /// @dfval the input dataflow value
     /// @return true if dfval changed
-    virtual void compDFVal(Instruction *inst, T *dfval ) = 0;
-
-    virtual void compDFVal(Instruction *inst, T *dfval, typename DataflowResult<T>::Type *result) = 0;
+    virtual void compDFVal(Instruction *inst, T *dfval, myBasicBlock* mbb) = 0;
     ///
     /// Merge of two dfvals, dest will be ther merged result
     /// @return true if dest changed
@@ -112,7 +197,7 @@ void compForwardDataflow(Function *fn,
     }
 
     while(!worklist.empty()) {
-        mBasicBlock * mbb = *worklist.begin();
+        myBasicBlock * mbb = *worklist.begin();
         worklist.erase(worklist.begin());
 
         if(result->find(mbb) == result->end()){
