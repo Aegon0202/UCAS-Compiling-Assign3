@@ -249,12 +249,10 @@ public:
                 for (BasicBlock::iterator ii=block->begin(), ie=block->end(); ii!=ie; ++ii){
                     Instruction* inst = &*ii;
                     if(isa<DbgInfoIntrinsic>(inst)) continue; 
-
                     if(CallInst* callinst = dyn_cast<CallInst>(inst)){
                          if(callinst->getCalledOperand()->getName()!="malloc"){
-                            block->splitBasicBlock(inst,"");
+                            BasicBlock* newbb = block->splitBasicBlock(inst,"");
                             assert(block->getUniqueSuccessor());
-                            block->Create(block->getContext(), "", block->getParent(), block->getUniqueSuccessor());
                          } 
                     }
                 }
